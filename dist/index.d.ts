@@ -10,7 +10,7 @@ type Props = {
         types: Record<string, Array<TypedDataField>>;
         message: Record<string, any>;
     };
-    finalDigest?: string;
+    finalDigest?: string | Uint8Array;
 };
 /**
  * NOTE: you only need to pass one of: typedData, finalDigest, message

@@ -32,6 +32,7 @@
   "homepage": "https://github.com/AmbireTech/signature-validator#readme",
   "dependencies": {
     "ethers": "^5.6.5",
+    "solc": "^0.8.17",
     "tap-spec": "^5.0.0",
     "tape": "^5.5.3"
   },

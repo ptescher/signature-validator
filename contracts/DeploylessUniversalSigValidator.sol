@@ -5,9 +5,13 @@ interface IERC1271Wallet {
   function isValidSignature(bytes32 hash, bytes calldata signature) external view returns (bytes4 magicValue);
 }
 
+interface LegacyIERC1271Wallet {
+  function isValidSignature(bytes memory _data, bytes memory _signature) external view returns (bytes4 magicValue);
+}
+
 contract VerifySig {
-  constructor (address _signer, bytes32 _hash, bytes memory _signature) {
-    bool isValidSig = isValidUniversalSig(_signer, _hash, _signature);
+  constructor (address _signer, bytes memory _data, bytes memory _signature) {
+    bool isValidSig = isValidUniversalSig(_signer, _data, _signature);
     assembly {
       mstore(0, isValidSig)
       return(31, 1)
@@ -17,15 +21,17 @@ contract VerifySig {
   // ERC-6492 suffix: https://eips.ethereum.org/EIPS/eip-6492
   bytes32 private constant ERC6492_DETECTION_SUFFIX = 0x6492649264926492649264926492649264926492649264926492649264926492;
   bytes4 private constant ERC1271_SUCCESS = 0x1626ba7e;
+  bytes4 private constant LegacyERC1271_SUCCESS = 0x20c13b0b;
   /**
    * @notice Verifies that the signature is valid for that signer and hash
    */
   function isValidUniversalSig(
     address _signer,
-    bytes32 _hash,
+    bytes memory _data,
     bytes memory _signature
   ) public returns (bool) {
     bytes memory contractCode = address(_signer).code;
+    bytes32 _hash = keccak256(_data);
     // The order here is striclty defined in https://eips.ethereum.org/EIPS/eip-6492
     // - ERC-6492 suffix check and verification first, while being permissive in case the contract is already deployed so as to not invalidate old sigs
     // - ERC-1271 verification if there's contract code
@@ -40,11 +46,11 @@ contract VerifySig {
         (bool success, ) = create2Factory.call(factoryCalldata);
         require(success, 'SignatureValidator: deployment');
       }
-      return IERC1271Wallet(_signer).isValidSignature(_hash, originalSig) == ERC1271_SUCCESS;
+      return (IERC1271Wallet(_signer).isValidSignature(_hash, originalSig) == ERC1271_SUCCESS) || (LegacyIERC1271Wallet(_signer).isValidSignature(_data, originalSig) == LegacyERC1271_SUCCESS);
     }
 
     if (contractCode.length > 0) {
-      return IERC1271Wallet(_signer).isValidSignature(_hash, _signature) == ERC1271_SUCCESS;
+      return (IERC1271Wallet(_signer).isValidSignature(_hash, _signature) == ERC1271_SUCCESS) || (LegacyIERC1271Wallet(_signer).isValidSignature(_data, _signature) == LegacyERC1271_SUCCESS);
     }
 
     // ecrecover verification
